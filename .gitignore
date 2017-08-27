@@ -98,3 +98,11 @@ GitHub.sublime-settings
 !.vscode/launch.json
 !.vscode/extensions.json
 .history
+
+### Typescript ###
+*.js
+*.js.map
+dist/
+
+### Atramento ###
+*.amo
