@@ -4,7 +4,7 @@ import * as fs from 'fs-extra';
 import { type } from 'os';
 import * as readChunk from 'read-chunk';
 
-import { RejectPromise, ResolveBooleanPromise, ResolveStringPromise, ResolveVoidPromise } from '../Utils';
+import { QueueFile, RejectPromise, ResolveBooleanPromise, ResolveStringPromise, ResolveVoidPromise } from '../Utils';
 import { DatabaseManager } from './DatabaseManager';
 import { DocumentManager } from './DocumentManager';
 
@@ -20,7 +20,7 @@ export class ClearanceManager {
 	private readonly logPrefix: string = 'ClearanceManager:';
 	private databaseManager: DatabaseManager;
 	private documentManager: DocumentManager;
-	private fileQueue: string[] = [];
+	private fileQueue: QueueFile[] = [];
 	private queueIsWorking: boolean = false;
 
 	constructor() {
@@ -49,10 +49,17 @@ export class ClearanceManager {
 	}
 
 	// public addFilesToQueue(filePaths: string[]) {
-	public addFileToQueue(filePath: string): void {
-		this.fileQueue = this.fileQueue.concat(filePath);
+	public addFileToQueue(filePath: string, formerFileName: string, tempFileName: string, desiredFileName?: string): void {
+		let desiredFileNameHelper: string = formerFileName;
 
-		console.log('Added new file to queue:', filePath);
+		if (desiredFileName) {
+			desiredFileNameHelper = desiredFileName;
+		}
+
+		const file: QueueFile = new QueueFile(filePath, formerFileName, tempFileName, desiredFileNameHelper);
+		this.fileQueue = this.fileQueue.concat(file);
+
+		console.log('Added new file to queue:', file);
 
 		// if queue is not being worked on, work on it
 		if (!this.queueIsWorking) {
@@ -60,10 +67,10 @@ export class ClearanceManager {
 		}
 	}
 
-	public addFilesToQueue(filePaths: string[]): void {
-		this.fileQueue = this.fileQueue.concat(filePaths);
+	public addFilesToQueue(files: QueueFile[]): void {
+		this.fileQueue = this.fileQueue.concat(files);
 
-		console.log('Added new files to queue', filePaths);
+		console.log('Added new files to queue', files);
 
 		// if queue is not being worked on, work on it
 		if (!this.queueIsWorking) {
@@ -87,22 +94,22 @@ export class ClearanceManager {
 		if (documentType !== null) {
 			switch (documentType.ext) {
 				case 'png':
-				// TODO: go on
-				break;
+					// TODO: go on
+					break;
 				case 'jpg':
-				// TODO: convert to png
-				break;
+					// TODO: convert to png
+					break;
 				case 'gif':
-				// TODO: convert to png
-				break;
+					// TODO: convert to png
+					break;
 				case 'bmp':
-				// TODO: convert to png
-				break;
+					// TODO: convert to png
+					break;
 				case 'pdf':
-				// TODO: go on
-				break;
+					// TODO: go on
+					break;
 				default:
-				break;
+					break;
 			}
 		} else {
 			// TODO: Check if plaintext or binary
@@ -131,28 +138,25 @@ export class ClearanceManager {
 			const hash: crypto.Hash = crypto.createHash('sha256');
 
 			const currentStream: fs.ReadStream = fs.createReadStream(pathToFile)
-			.on('data', (chunk: Buffer) => {
-				hash.update(chunk, 'utf8');
-				// console.log(this.logPrefix, 'Chunk' + index, chunk);
-			}).on('end', () => {
-				const calculatedHash: string = hash.digest('hex');
-				console.log(this.logPrefix, 'Calculated hash:', calculatedHash);
-				resolve(calculatedHash);
-			}).on('error', (error: Error) => {
-				console.log(this.logPrefix, 'Error caught in calculateSHA256Checksum():', error);
-				reject(error);
-			});
+				.on('data', (chunk: Buffer) => {
+					hash.update(chunk, 'utf8');
+					// console.log(this.logPrefix, 'Chunk' + index, chunk);
+				}).on('end', () => {
+					const calculatedHash: string = hash.digest('hex');
+					console.log(this.logPrefix, 'Calculated hash:', calculatedHash);
+					resolve(calculatedHash);
+				}).on('error', (error: Error) => {
+					console.log(this.logPrefix, 'Error caught in calculateSHA256Checksum():', error);
+					reject(error);
+				});
 		});
 	}
 
 	// FIXME: temporary async tester
 	private stopper(time: number): Promise<void> {
-		return new Promise<void> ((resolve: ResolveVoidPromise, reject: RejectPromise): void => {
+		return new Promise<void>((resolve: ResolveVoidPromise, reject: RejectPromise): void => {
 
-			setTimeout(() => {
-				console.log('stop stopper');
-				resolve();
-			},         time);
+			setTimeout(() => { console.log('stop stopper');	resolve(); }, time);
 		});
 	}
 
@@ -166,15 +170,18 @@ export class ClearanceManager {
 				console.log('Current queue number:', this.fileQueue.length);
 				console.log('File of queue:', this.fileQueue[0]);
 
-				const currentFile: string = this.fileQueue.shift();
+				const currentFile: QueueFile = this.fileQueue.shift();
 				console.log(currentFile);
-				if (currentFile === undefined) {
+
+				const currentFilePath: string = currentFile.FilePath;
+
+				if (currentFilePath === undefined) {
 					continue;
 				}
 
-				const currentFileStats: fs.Stats = fs.statSync(currentFile);
+				const currentFileStats: fs.Stats = fs.statSync(currentFilePath);
 				const currentFileSize: number = currentFileStats.size / 1000000.0;
-				const currentFileHash: string = await this.calculateSHA256Checksum(currentFile);
+				const currentFileHash: string = await this.calculateSHA256Checksum(currentFilePath);
 				const isDuplicate: boolean = await this.checkIfDuplicate(currentFileHash);
 
 				if (isDuplicate) {
@@ -183,11 +190,11 @@ export class ClearanceManager {
 					continue;
 				}
 
-				const documentType: string = await this.checkFileType(currentFile);
+				const documentType: string = await this.checkFileType(currentFilePath);
 
-				await this.documentManager.AddDocument(currentFile, currentFileHash, currentFileSize, documentType, 'Desired document name');
+				await this.documentManager.AddDocument(currentFilePath, currentFileHash, currentFileSize, documentType, currentFile.FileDesiredName);
 			} catch (error) {
-			console.log(this.logPrefix, 'Error caught in workOffQueue():', error);
+				console.log(this.logPrefix, 'Error caught in workOffQueue():', error);
 			}
 		}
 

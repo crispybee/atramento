@@ -2,19 +2,21 @@ import * as bodyParser from 'body-parser';
 import { Request, Response, Router } from 'express';
 import * as multer from 'multer';
 import * as path from 'path';
+import * as uuid_v4 from 'uuid/v4';
 import { MulterStorageFilenameCallback } from '../Utils';
 import { ClearanceManager } from '../workers/ClearanceManager';
 import { PropertiesManager } from '../workers/PropertiesManager';
 
 const UPLOAD_PATH: string = 'uploads';
+const FORM_DATA_FILE_KEY: string = 'file';
 const propertiesManager: PropertiesManager = PropertiesManager.getInstance();
 const clearanceManager: ClearanceManager = ClearanceManager.getInstance();
 
 const storage: multer.StorageEngine = multer.diskStorage({
 	destination: propertiesManager.TEMP_DIRECTORY,
 	filename: (request: Express.Request, file: Express.Multer.File, callback: MulterStorageFilenameCallback): void => {
-		const date: string = new Date().getTime().toLocaleString();
-		callback(null, file.originalname /*path.basename(file.originalname) + '_' + date + path.extname(file.originalname)*/);
+		const tempName: string = uuid_v4() + path.extname(file.originalname);
+		callback(null, tempName);
 	}
 });
 
@@ -60,7 +62,7 @@ restRouter.get('/hello/:name', (request: Request, response: Response) => {
 	response.send('Hello ' + request.params.name + '!');
 });
 
-restRouter.post('/upload', upload.single('avatar'), (request: Request, response: Response) => {
+restRouter.post('/upload', upload.single(FORM_DATA_FILE_KEY), (request: Request, response: Response) => {
 	if (!request.file) {
 		console.log('No file received');
 
@@ -70,9 +72,11 @@ restRouter.post('/upload', upload.single('avatar'), (request: Request, response:
 	} else {
 		console.log('File received:', request.file.originalname);
 
-		// TODO: use appropriately
-		const fileToPath: string = path.join(propertiesManager.ROOT_PATH, request.file.destination, request.file.originalname);
-		clearanceManager.addFileToQueue(fileToPath);
+		// TODO:
+		const formerFileName: string = request.file.originalname;
+		const newFileName: string = request.file.filename;
+		const pathToFile: string = path.join(propertiesManager.ROOT_PATH, request.file.path);
+		clearanceManager.addFileToQueue(pathToFile, formerFileName, newFileName);
 
 		return response.send({
 			success: true
