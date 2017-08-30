@@ -6,6 +6,6 @@
         "noImplicitAny": false,
         "sourceMap": true,
         "outDir": "dist",
-        "watch": true
+        "watch": false
     }
 }
