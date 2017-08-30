@@ -10,6 +10,7 @@ import { FileDocumentType } from "./DatabaseManager";
  */
 export class FileManager {
 	private static _instance: FileManager = new FileManager();
+	private readonly logPrefix: string = 'FileManager:';
 
 	constructor() {
 		if(FileManager._instance) {
@@ -17,6 +18,8 @@ export class FileManager {
 		}
 
 		FileManager._instance = this;
+
+		this.moveToDocumentsFolder();
 	}
 
 	public static getInstance(): FileManager
@@ -24,10 +27,12 @@ export class FileManager {
 		return FileManager._instance;
 	}
 
-	private moveToDocumentsFolder(fileName: string, fileType: FileDocumentType): boolean {
-		let sourcePath: string = path.join()
+	private moveToDocumentsFolder(fileName?: string, fileType?: FileDocumentType): boolean {
+		let sourcePath: string = path.join();
 
-		fs.moveSync('', '');
+		// fs.moveSync('', '');
+
+		// crypto.createHash('md5').update('asd', 'utf8').digest('hex');
 
 		return true;
 	}

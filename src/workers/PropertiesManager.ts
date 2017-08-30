@@ -6,9 +6,11 @@
  */
 export class PropertiesManager {
 	private static _instance: PropertiesManager = new PropertiesManager();
+	private readonly logPrefix: string = 'PropertiesManager:';
 
 	/** This variable sets the folder name for the temporary uploads destination. */
 	public readonly TEMP_DIRECTORY: string = 'temp_uploads';
+	public ROOT_PATH: string = 'temp_uploads';
 
 	constructor() {
 		if(PropertiesManager._instance) {
@@ -21,5 +23,9 @@ export class PropertiesManager {
 	public static getInstance(): PropertiesManager
 	{
 		return PropertiesManager._instance;
+	}
+
+	public setPath(atramentoRootPath: string) {
+		this.ROOT_PATH = atramentoRootPath;
 	}
 }

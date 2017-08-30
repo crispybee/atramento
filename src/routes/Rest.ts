@@ -7,13 +7,14 @@ import { PropertiesManager } from "../workers/PropertiesManager";
 
 
 const UPLOAD_PATH: string = 'uploads';
-let properties: PropertiesManager = PropertiesManager.getInstance();
+let propertiesManager: PropertiesManager = PropertiesManager.getInstance();
+let clearanceManager: ClearanceManager = ClearanceManager.getInstance();
 
 let storage: multer.StorageEngine = multer.diskStorage({
-	destination: properties.TEMP_DIRECTORY,
+	destination: propertiesManager.TEMP_DIRECTORY,
 	filename: function (request, file, callback) {
 		let date = new Date().getTime().toLocaleString();
-		callback(null, path.basename(file.originalname) + '_' + date + path.extname(file.originalname));
+		callback(null, file.originalname /*path.basename(file.originalname) + '_' + date + path.extname(file.originalname)*/);
 	}
 });
 
@@ -69,7 +70,8 @@ restRouter.post('/upload', upload.single('avatar'), (request, response) => {
 		console.log("File received:", request.file.originalname);
 
 		// TODO: use appropriately
-		let x = ClearanceManager.getInstance();
+		let fileToPath: string = path.join(propertiesManager.ROOT_PATH, request.file.destination, request.file.originalname);
+		clearanceManager.addFileToQueue(fileToPath);
 
 		return response.send({
 			success: true

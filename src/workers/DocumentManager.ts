@@ -1,3 +1,5 @@
+import { FileDocumentType } from "./DatabaseManager";
+
 /**
  * @access singleton
  *
@@ -6,6 +8,7 @@
  */
 export class DocumentManager {
 	private static _instance: DocumentManager = new DocumentManager();
+	private readonly logPrefix: string = 'DocumentManager:';
 
 	constructor() {
 		if(DocumentManager._instance) {
@@ -18,5 +21,13 @@ export class DocumentManager {
 	public static getInstance(): DocumentManager
 	{
 		return DocumentManager._instance;
+	}
+
+	public AddDocument(pathToFile: string, hash: string, size: number, documentType: string, requestedName?: string) {
+		if(requestedName) {
+			console.log('Adding new document of type', documentType, 'called', requestedName, 'with a size of', size, 'MB and a hash of', hash, 'from', pathToFile);
+		} else {
+			console.log('Adding new document of type', documentType, 'with a size of', size, 'MB and a hash of', hash, 'from', pathToFile);
+		}
 	}
 }
