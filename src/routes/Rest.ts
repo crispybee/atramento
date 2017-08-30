@@ -1,25 +1,25 @@
-import path = require('path');
-import { Router, Request, Response } from 'express';
-import multer = require('multer');
-import bodyParser = require('body-parser');
-import { ClearanceManager } from "../workers/ClearanceManager";
-import { PropertiesManager } from "../workers/PropertiesManager";
-
+import * as bodyParser from 'body-parser';
+import { Request, Response, Router } from 'express';
+import * as multer from 'multer';
+import * as path from 'path';
+import { MulterStorageFilenameCallback } from '../Utils';
+import { ClearanceManager } from '../workers/ClearanceManager';
+import { PropertiesManager } from '../workers/PropertiesManager';
 
 const UPLOAD_PATH: string = 'uploads';
-let propertiesManager: PropertiesManager = PropertiesManager.getInstance();
-let clearanceManager: ClearanceManager = ClearanceManager.getInstance();
+const propertiesManager: PropertiesManager = PropertiesManager.getInstance();
+const clearanceManager: ClearanceManager = ClearanceManager.getInstance();
 
-let storage: multer.StorageEngine = multer.diskStorage({
+const storage: multer.StorageEngine = multer.diskStorage({
 	destination: propertiesManager.TEMP_DIRECTORY,
-	filename: function (request, file, callback) {
-		let date = new Date().getTime().toLocaleString();
+	filename: (request: Express.Request, file: Express.Multer.File, callback: MulterStorageFilenameCallback): void => {
+		const date: string = new Date().getTime().toLocaleString();
 		callback(null, file.originalname /*path.basename(file.originalname) + '_' + date + path.extname(file.originalname)*/);
 	}
 });
 
-let upload: multer.Instance = multer({ storage: storage });
-let restRouter: Router = Router();
+const upload: multer.Instance = multer({ storage: storage });
+const restRouter: Router = Router();
 
 restRouter.use(bodyParser.json());
 restRouter.use(bodyParser.urlencoded({
@@ -27,21 +27,21 @@ restRouter.use(bodyParser.urlencoded({
 }));
 
 // invoked for any requests passed to router
-restRouter.use((request, response, next) => {
+restRouter.use((request: Request, response: Response, next: Function) => {
 
 	console.log('REST:', request.method, request.url);
 	next();
 });
 
-
 // TODO:
 // route middleware to validate :name
-restRouter.param('name', (request, response, next, name) => {
+restRouter.param('name', (request: Request, response: Response, next: Function, name: string) => {
 	// do validation on name here
 	// log something so we know its working
-	console.log('doing name validations on ' + name);
+	console.log('doing name validations on ', name);
 
-	name = name + '?4398';
+	const addition: string = '?4398';
+	name = name + addition;
 
 	// once validation is done save the new item in the request
 	request.body.name = name;
@@ -50,27 +50,28 @@ restRouter.param('name', (request, response, next, name) => {
 });
 
 // route with parameters (http://localhost:8080/rest/modifiedhello/:name)
-restRouter.get('/mhello/:name', (request, response) => {
-	response.send('Hello ' + request.body.name + '!');
+restRouter.get('/mhello/:name', (request: Request, response: Response) => {
+	response.send('Hello' + request.body.name + '!');
 });
 
 // route with parameters (http://localhost:8080/rest/hallo/:name)
-restRouter.get('/hello/:name', (request, response) => {
+restRouter.get('/hello/:name', (request: Request, response: Response) => {
 	// not bound to params middleware
 	response.send('Hello ' + request.params.name + '!');
 });
 
-restRouter.post('/upload', upload.single('avatar'), (request, response) => {
-	if(!request.file) {
-		console.log("No file received");
+restRouter.post('/upload', upload.single('avatar'), (request: Request, response: Response) => {
+	if (!request.file) {
+		console.log('No file received');
+
 		return response.send({
 			success: false
 		});
 	} else {
-		console.log("File received:", request.file.originalname);
+		console.log('File received:', request.file.originalname);
 
 		// TODO: use appropriately
-		let fileToPath: string = path.join(propertiesManager.ROOT_PATH, request.file.destination, request.file.originalname);
+		const fileToPath: string = path.join(propertiesManager.ROOT_PATH, request.file.destination, request.file.originalname);
 		clearanceManager.addFileToQueue(fileToPath);
 
 		return response.send({

@@ -1,6 +1,6 @@
-import path = require('path');
-import fs = require('fs-extra');
-import { FileDocumentType } from "./DatabaseManager";
+import * as fs from 'fs-extra';
+import * as path from 'path';
+import { FileDocumentType } from '../Utils';
 
 /**
  * @access singleton
@@ -9,26 +9,25 @@ import { FileDocumentType } from "./DatabaseManager";
  * Note: This class is a singleton! Access it by FileManager.getInstance(), not new FileManager()!
  */
 export class FileManager {
-	private static _instance: FileManager = new FileManager();
+	private static INSTANCE: FileManager = new FileManager();
 	private readonly logPrefix: string = 'FileManager:';
 
 	constructor() {
-		if(FileManager._instance) {
+		if (FileManager.INSTANCE) {
 			throw new Error('Error: Instantiation failed: Use FileManager.getInstance() instead of new.');
 		}
 
-		FileManager._instance = this;
+		FileManager.INSTANCE = this;
 
 		this.moveToDocumentsFolder();
 	}
 
-	public static getInstance(): FileManager
-	{
-		return FileManager._instance;
+	public static getInstance(): FileManager {
+		return FileManager.INSTANCE;
 	}
 
 	private moveToDocumentsFolder(fileName?: string, fileType?: FileDocumentType): boolean {
-		let sourcePath: string = path.join();
+		const sourcePath: string = path.join();
 
 		// fs.moveSync('', '');
 

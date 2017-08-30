@@ -1,23 +1,24 @@
-import express = require('express');
+import * as express from 'express';
 
-import { Express, Router, Request, Response } from 'express';
+import { Express, Request, Response, Router } from 'express';
 
-import { Rest } from './routes/Rest';
 import { Page } from './routes/Page';
+import { Rest } from './routes/Rest';
+import { RejectPromise, ResolveVoidPromise } from './Utils';
 
 export class Server {
+	public UPLOAD_PATH: string = 'uploads';
+	public port: string = process.env.PORT || '3000';
+	public router: Router;
+	public app: Express;
 	private readonly logPrefix: string = 'Server:';
-	UPLOAD_PATH: string = 'uploads';
-	port: string = process.env.PORT || '3000';
-	router: Router;
-	app: Express;
 
 	constructor(port?: string, UPLOAD_PATH?: string) {
-		if(port) {
+		if (port) {
 			this.port = port;
 		}
 
-		if(UPLOAD_PATH) {
+		if (UPLOAD_PATH) {
 			this.UPLOAD_PATH = UPLOAD_PATH;
 		}
 
@@ -25,8 +26,8 @@ export class Server {
 	}
 
 	public start(): Promise<void> {
-		return new Promise<void>((resolve, reject) => {
-			this.app.listen(this.port, running => {
+		return new Promise<void>((resolve: ResolveVoidPromise, reject: RejectPromise): void => {
+			this.app.listen(this.port, (running: Function) => {
 				console.log(this.logPrefix, 'Listening on port', this.port);
 				resolve();
 			});

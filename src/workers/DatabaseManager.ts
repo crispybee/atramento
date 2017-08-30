@@ -1,9 +1,7 @@
-import os = require('os');
-import sqlite3 = require('sqlite3');
+import * as os from 'os';
+import * as sqlite3 from 'sqlite3';
+import { FileDocumentType, RejectPromise, ResolveBooleanPromise, ResolveVoidPromise } from '../Utils';
 sqlite3.verbose();
-
-export type FileDocumentType = 'PDF' | 'Image' | 'Plaintext';
-
 
 /**
  * @access singleton
@@ -12,7 +10,7 @@ export type FileDocumentType = 'PDF' | 'Image' | 'Plaintext';
  * Note: This class is a singleton! Access it by DatabaseManager.getInstance(), not new DatabaseManager()!
  */
 export class DatabaseManager {
-	private static _instance: DatabaseManager = new DatabaseManager();
+	private static INSTANCE: DatabaseManager = new DatabaseManager();
 	private readonly logPrefix: string = 'DatabaseManager:';
 	private database : sqlite3.Database;
 	private date: Date = new Date();
@@ -24,18 +22,17 @@ export class DatabaseManager {
 	private readonly documentImageTableName: string = 'DocumentImage';
 
 	constructor() {
-		if(DatabaseManager._instance) {
+		if (DatabaseManager.INSTANCE) {
 			throw new Error('Error: Instantiation failed: Use DatabaseManager.getInstance() instead of new.');
 		}
 
-		DatabaseManager._instance = this;
+		DatabaseManager.INSTANCE = this;
 
 		// this.createAndOpenDatabase();
 	}
 
-	public static getInstance(): DatabaseManager
-	{
-		return DatabaseManager._instance;
+	public static getInstance(): DatabaseManager {
+		return DatabaseManager.INSTANCE;
 	}
 /*
 	"id" INTEGER NOT NULL PRIMARY KEY UNIQUE,
@@ -46,24 +43,28 @@ export class DatabaseManager {
 	"name" TEXT NOT NULL)`,
 */
 	public addDocumentToDatabase(checksum: string, filePath: string, fileType: FileDocumentType, name: string): void {
-		let createdOn: number = Date.now();
+		const createdOn: number = Date.now();
 
 		// TODO: Add to Files and according Document table
-		switch(fileType) {
+		switch (fileType) {
 			case 'PDF':
 			break;
 			case 'Plaintext':
 			break;
 			case 'Image':
 			break;
+			default:
+			break;
 		}
 
 		// TODO: Execute SQL queries, for File and the Document..
-		let statement: sqlite3.Statement = this.database.prepare('INSERT INTO ' + this.fileTableName + '(checksum, filePath, fileType, createdOn, name) VALUES (?, ?, ?, ?, ?)', callback => {
+		const statement: sqlite3.Statement = this.database.prepare(
+			`INSERT INTO ${this.fileTableName}(checksum, filePath, fileType, createdOn, name) VALUES (?, ?, ?, ?, ?)`,
+			(callback: Error) => {
 			// console.log(this.logPrefix, 'Prepared statement for filling: ', callback);
 		});
 
-		for (let i = 0; i < 10; i++) {
+		for (let i: number = 0; i < 10; i++) {
 			statement.run('Ipsum' + i, '/path/to/fooX' + i, 'PDF', Date.now(), 'Example Document');
 		}
 
@@ -71,21 +72,21 @@ export class DatabaseManager {
 	}
 
 	public checkForDuplicate(hashSHA256: string): Promise<boolean> {
-		return new Promise<boolean>((resolve, reject) => {
+		return new Promise<boolean>((resolve: ResolveBooleanPromise, reject: RejectPromise): void => {
 			resolve(false);
 		});
 	}
 
 	// TODO: make async and public
 	public async createAndOpenDatabase(): Promise<void> {
-		return new Promise<void> ((resolve, reject) => {
-			this.database = new sqlite3.Database('./documents.amo', callback => {
-				if(callback === null) {
+		return new Promise<void> ((resolve: (value?: void | PromiseLike<void>) => void, reject: (reason?: {}) => void): void => {
+			this.database = new sqlite3.Database('./documents.amo', (callback: Error): void => {
+				if (callback === null) {
 					console.log(this.logPrefix, 'Database was opened successfully');
 
 					try {
 						resolve(this.checkAndSetupDatabase());
-					} catch(error) {
+					} catch (error) {
 						console.log(this.logPrefix, 'Could not set up database:', error);
 						reject(error);
 					}
@@ -98,15 +99,15 @@ export class DatabaseManager {
 	}
 
 	private async checkAndSetupDatabase(): Promise<void> {
-		let emptyDatabase: boolean = await this.isDatabaseEmpty();
-		console.log(this.logPrefix, "Database is empty:", emptyDatabase);
+		const emptyDatabase: boolean = await this.isDatabaseEmpty();
+		console.log(this.logPrefix, 'Database is empty:', emptyDatabase);
 
 		/* TODO: Not yet implemented
 		let validDatabase: boolean = await this.isDatabaseStructureValid();
 		console.log(this.logPrefix, 'NOT YET IMPLEMENTED - Database is valid:', validDatabase);
 		*/
 
-		if(emptyDatabase) {
+		if (emptyDatabase) {
 			await this.createNewDatabaseStructure();
 		}
 	}
@@ -115,11 +116,11 @@ export class DatabaseManager {
 	private setupDatabaseTriggers(): void {
 		// TODO: setup database triggers according to database version
 		// TODO: These must be parameters in the createFileInDatabase method!
-		let documentType: FileDocumentType = 'PDF'
-		let fileId: string = '1';
-		let documentName: string = 'Example Document';
+		const documentType: FileDocumentType = 'PDF';
+		const fileId: string = '1';
+		const documentName: string = 'Example Document';
 
-		let sqlString: string = `
+		const sqlString: string = `
 			CREATE TRIGGER TriggerAutoAddDocumentEntriesFromFile
 			AFTER INSERT ON File
 			BEGIN
@@ -134,27 +135,28 @@ export class DatabaseManager {
 					ELSE
 						RAISE (FAIL, "It was not possible to create the document entry copy.")
 			END;
-			`
+			`;
 
 		// TODO: put newly created entries like DocumentPDF on update list after insert -> manual filling of entry
 	}
 
 	private isDatabaseEmpty(): Promise<boolean> {
-		return new Promise<boolean>((resolve, reject) => {
+		return new Promise<boolean>((resolve: ResolveBooleanPromise, reject: RejectPromise): void => {
 			console.log(this.logPrefix, 'Checking tables in database...');
 
 			// get all table names
-			this.database.all('SELECT name FROM sqlite_master WHERE type="table"'/*' AND name="' + this.documentTableName + '"'*/, (done: sqlite3.Statement, result: any[]) => {
+			/*' AND name="' + this.documentTableName + '"'*/
+			this.database.all('SELECT name FROM sqlite_master WHERE type="table"', (done: sqlite3.Statement, result: {}[]) => {
 
 				let returnValue: boolean | Error;
 
 				// null is success
-				if(done === null) {
+				if (done === null) {
 					console.log(this.logPrefix, 'Checking was executed successfully', done, result.length);
 					console.log(this.logPrefix, 'Result parameter:', result, 'Count of result:', result.length);
 
 					// table exists
-					if(result.length > 0) {
+					if (result.length > 0) {
 						// check if the database structure is valid
 						returnValue = false; // this.isDatabaseStructureValid();
 					} else {
@@ -189,24 +191,25 @@ export class DatabaseManager {
 		/*
 			this.database.each('SELECT row AS id, checksum, filePath, fileType, createdOn, name FROM ' + this.fileTableName, (error, row) => {
 				console.log(this.logPrefix, error, row);
-				console.log(this.logPrefix, row.id + ': ' + row.checksum + ' ' + row.filePath + ' ' + row.fileType + ' ' + row.createdOn + ' ' + row.name);
+				console.log(this.logPrefix, row.id, row.checksum, row.filePath, row.fileType, row.createdOn, row.name);
 			});
 		*/
 	}
 
 	private async createFileTable(): Promise<void> {
-		return new Promise<void>((resolve, reject) => {
+		return new Promise<void>((resolve: ResolveVoidPromise, reject: RejectPromise): void => {
 			// TODO: create DocumentPlaintext and DocumentImage tables + initialization of Triggers
 			// create File table
-			this.database.run(`CREATE TABLE "` + this.fileTableName + `" (
+			this.database.run(
+				`CREATE TABLE "${this.fileTableName}" (
 				"id" INTEGER NOT NULL PRIMARY KEY UNIQUE,
 				"checksum" TEXT NOT NULL UNIQUE,
 				"filePath" TEXT NOT NULL UNIQUE,
 				"fileType" TEXT NOT NULL,
 				"createdOn" TEXT NOT NULL,
 				"name" TEXT NOT NULL)`,
-			callback => {
-				if(callback === null) {
+				(callback: Error) => {
+				if (callback === null) {
 					console.log(this.logPrefix, 'Successfully added table', this.fileTableName);
 					resolve();
 				} else {
@@ -217,15 +220,16 @@ export class DatabaseManager {
 	}
 
 	private async createDocumentPDFTable(): Promise<void> {
-		return new Promise<void>((resolve, reject) => {
+		return new Promise<void>((resolve: ResolveVoidPromise, reject: RejectPromise): void => {
 			// create DocumentPDF table
-			this.database.run(`CREATE TABLE "` + this.documentPdfTableName + `" (
+			this.database.run(
+				`CREATE TABLE "${this.documentPdfTableName}" (
 				"id" INTEGER NOT NULL PRIMARY KEY UNIQUE,
 				"fileID" INTEGER NOT NULL UNIQUE,
 				"name" TEXT NOT NULL,
 				FOREIGN KEY (fileID) REFERENCES File(id))`,
-			callback => {
-				if(callback === null) {
+				(callback: Error) => {
+				if (callback === null) {
 					console.log(this.logPrefix, 'Successfully added table', this.documentPdfTableName);
 					resolve();
 				} else {
@@ -237,15 +241,16 @@ export class DatabaseManager {
 
 	// FIXME: For testing only
 	private async fillFileTable(): Promise<void> {
-		return new Promise<void>((resolve, reject) => {
+		return new Promise<void>((resolve: ResolveVoidPromise, reject: RejectPromise): void => {
 
-			let statement: sqlite3.Statement = this.database.prepare('INSERT INTO ' + this.fileTableName + '(checksum, filePath, fileType, createdOn, name) VALUES (?, ?, ?, ?, ?)');
+			const statement: sqlite3.Statement = this.database.prepare(
+				`INSERT INTO ${this.fileTableName}(checksum, filePath, fileType, createdOn, name) VALUES (?, ?, ?, ?, ?)`);
 
-			for (let i = 0; i < 10; i++) {
+			for (let i: number = 0; i < 10; i++) {
 				statement.run('Ipsum' + i, '/path/to/fooX' + i, 'PDF', Date.now(), 'Example Document');
 			}
 
-			statement.finalize(callback => {
+			statement.finalize((callback: Error) => {
 				console.log(this.logPrefix, 'Filled table', this.fileTableName);
 				resolve();
 			});
@@ -254,15 +259,15 @@ export class DatabaseManager {
 
 	// FIXME: For testing only
 	private async fillDocumentPDFTable(): Promise<void> {
-		return new Promise<void>((resolve, reject) => {
+		return new Promise<void>((resolve: ResolveVoidPromise, reject: RejectPromise): void => {
 
-			let statement2: sqlite3.Statement = this.database.prepare('INSERT INTO ' + this.documentPdfTableName + '(fileID, name) VALUES (?, ?)');
+			const statement2: sqlite3.Statement = this.database.prepare(`INSERT INTO ${this.documentPdfTableName}(fileID, name) VALUES (?, ?)`);
 
-			for (let i = 1; i < 11; i++) {
+			for (let i: number = 1; i < 11; i++) {
 				statement2.run(i, 'Example Document');
 			}
 
-			statement2.finalize(callback => {
+			statement2.finalize((callback: Error) => {
 				console.log(this.logPrefix, 'Filled table', this.documentPdfTableName);
 				resolve();
 			});

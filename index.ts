@@ -1,10 +1,10 @@
-import fs = require('fs');
+import * as fs from 'fs';
 import { Server } from './src/Server';
-import { ClearanceManager } from './src/workers/ClearanceManager'
-import { DatabaseManager } from "./src/workers/DatabaseManager";
-import { FileManager } from "./src/workers/FileManager";
-import { DocumentManager } from "./src/workers/DocumentManager";
-import { PropertiesManager } from "./src/workers/PropertiesManager";
+import { ClearanceManager } from './src/workers/ClearanceManager';
+import { DatabaseManager } from './src/workers/DatabaseManager';
+import { DocumentManager } from './src/workers/DocumentManager';
+import { FileManager } from './src/workers/FileManager';
+import { PropertiesManager } from './src/workers/PropertiesManager';
 
 async function main(): Promise<void> {
 	const propertiesManager: PropertiesManager = PropertiesManager.getInstance();
@@ -18,7 +18,7 @@ async function main(): Promise<void> {
 	const fileManager: FileManager = FileManager.getInstance();
 	const documentManager: DocumentManager = DocumentManager.getInstance();
 
-	const server: Server = new Server('3000');
+	const server: Server = new Server();
 	await server.start();
 
 	console.log('Server startup finished');
