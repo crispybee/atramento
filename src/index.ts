@@ -1,10 +1,10 @@
 import * as fs from 'fs';
-import { Server } from './src/Server';
-import { ClearanceManager } from './src/workers/ClearanceManager';
-import { DatabaseManager } from './src/workers/DatabaseManager';
-import { DocumentManager } from './src/workers/DocumentManager';
-import { FileManager } from './src/workers/FileManager';
-import { PropertiesManager } from './src/workers/PropertiesManager';
+import { Server } from './atr/Server';
+import { ClearanceManager } from './atr/workers/ClearanceManager';
+import { DatabaseManager } from './atr/workers/DatabaseManager';
+import { DocumentManager } from './atr/workers/DocumentManager';
+import { FileManager } from './atr/workers/FileManager';
+import { PropertiesManager } from './atr/workers/PropertiesManager';
 
 async function main(): Promise<void> {
 	const propertiesManager: PropertiesManager = PropertiesManager.getInstance();

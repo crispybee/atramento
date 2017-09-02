@@ -4,9 +4,10 @@ import * as fs from 'fs-extra';
 import { type } from 'os';
 import * as readChunk from 'read-chunk';
 
-import { QueueFile, RejectPromise, ResolveBooleanPromise, ResolveStringPromise, ResolveVoidPromise } from '../Utils';
-import { DatabaseManager } from './DatabaseManager';
+import { FileDocumentType, QueueFile, RejectPromise, ResolveBooleanPromise, ResolveStringPromise, ResolveVoidPromise } from '../Utils';
 import { DocumentManager } from './DocumentManager';
+import { FileManager } from './FileManager';
+import { PropertiesManager } from './PropertiesManager';
 
 /**
  * @access singleton
@@ -18,8 +19,9 @@ import { DocumentManager } from './DocumentManager';
 export class ClearanceManager {
 	private static INSTANCE: ClearanceManager = new ClearanceManager();
 	private readonly logPrefix: string = 'ClearanceManager:';
-	private databaseManager: DatabaseManager;
 	private documentManager: DocumentManager;
+	private propertiesManager: PropertiesManager;
+	private fileManager: FileManager;
 	private fileQueue: QueueFile[] = [];
 	private queueIsWorking: boolean = false;
 
@@ -30,18 +32,11 @@ export class ClearanceManager {
 
 		ClearanceManager.INSTANCE = this;
 
-		this.databaseManager = DatabaseManager.getInstance();
 		this.documentManager = DocumentManager.getInstance();
+		this.propertiesManager = PropertiesManager.getInstance();
+		this.fileManager = FileManager.getInstance();
 		this.fileQueue = [];
 		this.queueIsWorking = false;
-		/*
-		let headerBuffer = readChunk.sync('./1', 0, 4100);
-		let documentType: fileType.FileTypeResult = fileType(headerBuffer);
-
-		if(documentType !== null) {
-			console.log('FILE type', documentType.ext, documentType.mime);
-		}
-		*/
 	}
 
 	public static getInstance(): ClearanceManager {
@@ -50,7 +45,7 @@ export class ClearanceManager {
 
 	// public addFilesToQueue(filePaths: string[]) {
 	public addFileToQueue(filePath: string, formerFileName: string, tempFileName: string, desiredFileName?: string): void {
-		let desiredFileNameHelper: string = formerFileName;
+		let desiredFileNameHelper: string;
 
 		if (desiredFileName) {
 			desiredFileNameHelper = desiredFileName;
@@ -78,62 +73,45 @@ export class ClearanceManager {
 		}
 	}
 
-	private async checkIfDuplicate(fileSHA256Hash: string): Promise<boolean> {
-		// TODO: Get hashes from database and compare -> outsource method to DatabaseManager
-		return new Promise<boolean>((resolve: ResolveBooleanPromise, reject: RejectPromise): void => {
-			// FIXME: Not checked for async yet
-			resolve(this.databaseManager.checkForDuplicate(fileSHA256Hash));
-		});
-	}
-
-	private checkFileType(pathToFile: string): string /*FileDocumentType*/ {
+	private checkFileType(pathToFile: string): FileDocumentType {
 		const headerBuffer: Buffer = readChunk.sync(pathToFile, 0, 4100);
 		const documentType: fileType.FileTypeResult = fileType(headerBuffer);
+		let tempFileType: FileDocumentType = FileDocumentType.Unusable;
 
 		// TODO: maybe epub in the future
 		if (documentType !== null) {
 			switch (documentType.ext) {
 				case 'png':
-					// TODO: go on
+					tempFileType = FileDocumentType.Image;
 					break;
 				case 'jpg':
 					// TODO: convert to png
+					tempFileType = FileDocumentType.Image;
 					break;
 				case 'gif':
 					// TODO: convert to png
+					tempFileType = FileDocumentType.Image;
 					break;
 				case 'bmp':
 					// TODO: convert to png
+					tempFileType = FileDocumentType.Image;
 					break;
 				case 'pdf':
-					// TODO: go on
+					tempFileType = FileDocumentType.Pdf;
 					break;
 				default:
 					break;
 			}
+
 		} else {
 			// TODO: Check if plaintext or binary
+			tempFileType = FileDocumentType.Unusable;
 		}
 
-		return documentType.mime;
+		return tempFileType;
 	}
 
-	private async hashCaller(...files: string[]): Promise<void> {
-		const answer: string = await this.calculateSHA256Checksum('./asdasd.txt');
-		console.log(this.logPrefix, 'Hashes:', answer);
-
-		let index: number = 0;
-
-		for (const file of files) {
-			const currentFileHash: string = await this.calculateSHA256Checksum(file);
-			console.log(this.logPrefix, 'Hash ' + index + ':', currentFileHash);
-			index++;
-		}
-
-		console.log('Finished hashing');
-	}
-
-	private calculateSHA256Checksum(pathToFile: string): Promise<string> {
+	private async calculateSHA256Checksum(pathToFile: string): Promise<string> {
 		return new Promise<string>((resolve: ResolveStringPromise, reject: RejectPromise): void => {
 			const hash: crypto.Hash = crypto.createHash('sha256');
 
@@ -152,47 +130,57 @@ export class ClearanceManager {
 		});
 	}
 
-	// FIXME: temporary async tester
-	private stopper(time: number): Promise<void> {
-		return new Promise<void>((resolve: ResolveVoidPromise, reject: RejectPromise): void => {
-
-			setTimeout(() => { console.log('stop stopper');	resolve(); }, time);
-		});
-	}
-
 	private async workOffQueue(): Promise<void> {
 		this.queueIsWorking = true;
 		console.log(this.logPrefix, 'Start working off queue...', 'Queue is working:', this.queueIsWorking);
 
 		while (this.fileQueue.length > 0) {
 			try {
-				// await this.stopper(3000);
 				console.log('Current queue number:', this.fileQueue.length);
-				console.log('File of queue:', this.fileQueue[0]);
 
 				const currentFile: QueueFile = this.fileQueue.shift();
 				console.log(currentFile);
 
-				const currentFilePath: string = currentFile.FilePath;
-
-				if (currentFilePath === undefined) {
+				if (currentFile.Path === undefined) {
 					continue;
 				}
 
-				const currentFileStats: fs.Stats = fs.statSync(currentFilePath);
-				const currentFileSize: number = currentFileStats.size / 1000000.0;
-				const currentFileHash: string = await this.calculateSHA256Checksum(currentFilePath);
-				const isDuplicate: boolean = await this.checkIfDuplicate(currentFileHash);
+				const currentFileHash: string = await this.calculateSHA256Checksum(currentFile.Path);
+				const isDuplicate: boolean = await this.documentManager.checkForDuplicate(currentFileHash);
+
+				console.log(this.logPrefix, 'Is duplicate?', isDuplicate);
 
 				if (isDuplicate) {
 					console.log(this.logPrefix, 'Uploaded file is duplicate. Removing from temporary files...');
-					// TODO: FileManager remove from temp
+
+					// remove file from temp folder
+					await fs.remove(currentFile.Path);
+
+					// jump to next entry in queue
 					continue;
 				}
 
-				const documentType: string = await this.checkFileType(currentFilePath);
+				const documentType: FileDocumentType = await this.checkFileType(currentFile.Path);
+				const currentFileStats: fs.Stats = fs.statSync(currentFile.Path);
+				const currentFileSize: number = currentFileStats.size / 1000000.0;
+				let finalPath: string;
 
-				await this.documentManager.AddDocument(currentFilePath, currentFileHash, currentFileSize, documentType, currentFile.FileDesiredName);
+				// if unknown file format, stop
+				if (documentType !== FileDocumentType.Unusable) {
+					console.log(this.logPrefix, 'File is a valid document');
+					finalPath = await this.fileManager.moveToDocumentsFolder(currentFile, documentType, currentFileHash);
+				} else {
+					console.log(this.logPrefix, 'File is not a valid document. Removing from temporary files...');
+
+					// remove file from temp folder
+					await fs.remove(currentFile.Path);
+
+					// jump to next entry in queue
+					continue;
+				}
+
+				await this.documentManager.addDocument(currentFile, currentFileHash, finalPath, currentFileSize, documentType);
+
 			} catch (error) {
 				console.log(this.logPrefix, 'Error caught in workOffQueue():', error);
 			}

@@ -1,6 +1,6 @@
 import * as os from 'os';
 import * as sqlite3 from 'sqlite3';
-import { FileDocumentType, RejectPromise, ResolveBooleanPromise, ResolveVoidPromise } from '../Utils';
+import { FileDocumentType, IDatabaseFileEntry, RejectPromise, ResolveBooleanPromise, ResolveVoidPromise } from '../Utils';
 sqlite3.verbose();
 
 /**
@@ -34,50 +34,54 @@ export class DatabaseManager {
 	public static getInstance(): DatabaseManager {
 		return DatabaseManager.INSTANCE;
 	}
-/*
-	"id" INTEGER NOT NULL PRIMARY KEY UNIQUE,
-	"checksum" TEXT NOT NULL UNIQUE,
-	"filePath" TEXT NOT NULL UNIQUE,
-	"fileType" TEXT NOT NULL,
-	"createdOn" TEXT NOT NULL,
-	"name" TEXT NOT NULL)`,
-*/
-	public addDocumentToDatabase(checksum: string, filePath: string, fileType: FileDocumentType, name: string): void {
-		const createdOn: number = Date.now();
 
-		// TODO: Add to Files and according Document table
-		switch (fileType) {
-			case 'PDF':
-			break;
-			case 'Plaintext':
-			break;
-			case 'Image':
-			break;
-			default:
-			break;
-		}
-
-		// TODO: Execute SQL queries, for File and the Document..
-		const statement: sqlite3.Statement = this.database.prepare(
-			`INSERT INTO ${this.fileTableName}(checksum, filePath, fileType, createdOn, name) VALUES (?, ?, ?, ?, ?)`,
-			(callback: Error) => {
-			// console.log(this.logPrefix, 'Prepared statement for filling: ', callback);
-		});
-
-		for (let i: number = 0; i < 10; i++) {
-			statement.run('Ipsum' + i, '/path/to/fooX' + i, 'PDF', Date.now(), 'Example Document');
-		}
-
-		statement.finalize();
-	}
-
-	public checkForDuplicate(hashSHA256: string): Promise<boolean> {
+	public async checkForDuplicate(hashSHA256: string): Promise<boolean> {
 		return new Promise<boolean>((resolve: ResolveBooleanPromise, reject: RejectPromise): void => {
-			resolve(false);
+			console.log(this.logPrefix, 'Checking for hash', hashSHA256, 'in database...');
+
+			this.database.all(
+				`SELECT * FROM ${this.fileTableName} WHERE checksum="${hashSHA256}"`, (done: sqlite3.Statement, result: IDatabaseFileEntry[]) => {
+
+				let returnValue: boolean | Error;
+
+				// null is success
+				if (done === null) {
+					console.log(this.logPrefix, 'Checking was executed successfully', done, result.length);
+					console.log(this.logPrefix, 'Result parameter:', result, 'Count of result:', result.length);
+
+					// entry exists already
+					if (result.length > 0) {
+						returnValue = true;
+					} else {
+						// new entry
+						returnValue = false;
+					}
+
+					resolve(returnValue);
+				} else {
+					console.log(this.logPrefix, done);
+					reject(new Error('Could not search for entry!'));
+				}
+			});
 		});
 	}
 
-	// TODO: make async and public
+	public async addEntryToFileTable(
+		hash: string, filePath: string, fileType: FileDocumentType, date: number, name: string, originalFileName: string): Promise<void> {
+		return new Promise<void>((resolve: ResolveVoidPromise, reject: RejectPromise): void => {
+
+			const statement: sqlite3.Statement = this.database.prepare(
+				`INSERT INTO ${this.fileTableName}(checksum, filePath, fileType, createdOn, name, oldFileName) VALUES (?, ?, ?, ?, ?, ?)`);
+
+			statement.run(hash, filePath, fileType, date, name, originalFileName);
+
+			statement.finalize((callback: Error) => {
+				console.log(this.logPrefix, 'Added entry', hash, 'to', this.fileTableName);
+				resolve();
+			});
+		});
+	}
+
 	public async createAndOpenDatabase(): Promise<void> {
 		return new Promise<void> ((resolve: (value?: void | PromiseLike<void>) => void, reject: (reason?: {}) => void): void => {
 			this.database = new sqlite3.Database('./documents.amo', (callback: Error): void => {
@@ -116,7 +120,7 @@ export class DatabaseManager {
 	private setupDatabaseTriggers(): void {
 		// TODO: setup database triggers according to database version
 		// TODO: These must be parameters in the createFileInDatabase method!
-		const documentType: FileDocumentType = 'PDF';
+		const documentType: FileDocumentType = FileDocumentType.Pdf;
 		const fileId: string = '1';
 		const documentName: string = 'Example Document';
 
@@ -183,8 +187,8 @@ export class DatabaseManager {
 
 		await this.createFileTable();
 		await this.createDocumentPDFTable();
-		await this.fillFileTable();
-		await this.fillDocumentPDFTable();
+		// await this.fillFileTable();
+		// await this.fillDocumentPDFTable();
 
 		console.log(this.logPrefix, 'Finished setting up new database');
 
@@ -207,7 +211,9 @@ export class DatabaseManager {
 				"filePath" TEXT NOT NULL UNIQUE,
 				"fileType" TEXT NOT NULL,
 				"createdOn" TEXT NOT NULL,
-				"name" TEXT NOT NULL)`,
+				"name" TEXT NOT NULL,
+				"oldFileName" TEXT NOT NULL
+			)`,
 				(callback: Error) => {
 				if (callback === null) {
 					console.log(this.logPrefix, 'Successfully added table', this.fileTableName);

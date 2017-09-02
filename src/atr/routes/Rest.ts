@@ -7,7 +7,6 @@ import { MulterStorageFilenameCallback } from '../Utils';
 import { ClearanceManager } from '../workers/ClearanceManager';
 import { PropertiesManager } from '../workers/PropertiesManager';
 
-const UPLOAD_PATH: string = 'uploads';
 const FORM_DATA_FILE_KEY: string = 'file';
 const propertiesManager: PropertiesManager = PropertiesManager.getInstance();
 const clearanceManager: ClearanceManager = ClearanceManager.getInstance();
@@ -35,7 +34,6 @@ restRouter.use((request: Request, response: Response, next: Function) => {
 	next();
 });
 
-// TODO:
 // route middleware to validate :name
 restRouter.param('name', (request: Request, response: Response, next: Function, name: string) => {
 	// do validation on name here
@@ -72,10 +70,10 @@ restRouter.post('/upload', upload.single(FORM_DATA_FILE_KEY), (request: Request,
 	} else {
 		console.log('File received:', request.file.originalname);
 
-		// TODO:
 		const formerFileName: string = request.file.originalname;
 		const newFileName: string = request.file.filename;
 		const pathToFile: string = path.join(propertiesManager.ROOT_PATH, request.file.path);
+
 		clearanceManager.addFileToQueue(pathToFile, formerFileName, newFileName);
 
 		return response.send({
