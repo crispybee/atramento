@@ -9,7 +9,8 @@ export class PropertiesManager {
 
 	/** This variable sets the folder name for the temporary uploads destination. */
 	public readonly TEMP_DIRECTORY: string = 'temp_uploads';
-	public ROOT_PATH: string = 'temp_uploads';
+	public readonly CONVERTED_DIRECTORY: string = 'converted';
+	public ROOT_PATH: string = __dirname;
 
 	private readonly logPrefix: string = 'PropertiesManager:';
 

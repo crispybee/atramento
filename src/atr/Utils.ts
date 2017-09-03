@@ -1,14 +1,23 @@
-export enum FileDocumentType {
-	Pdf = 'PDF',
-	Plaintext = 'Plaintext',
-	Image = 'Image',
-	Unusable = 'Unusable'
+const removeFileExtensionRegex: RegExp = /\.[^.]+$/;
+
+export enum FileEnding {
+	Pdf = '.pdf',
+	Plaintext = '.txt',
+	Image = '.png'
 }
 
-export type ResolveVoidPromise = (value?: void | PromiseLike<void>) => void;
+export enum FileDocumentType {
+	Pdf = 'pdf',
+	Plaintext = 'plaintext',
+	Image = 'image',
+	Unusable = 'unusable'
+}
+
 export type RejectPromise = (reason?: {}) => void;
+export type ResolveVoidPromise = (value?: void | PromiseLike<void>) => void;
 export type ResolveBooleanPromise = (value?: boolean | PromiseLike<boolean>) => void;
 export type ResolveStringPromise = (value?: string | PromiseLike<string>) => void;
+export type ResolveQueueFilePromise = (value?: QueueFile | PromiseLike<QueueFile>) => void;
 
 export type MulterStorageFilenameCallback = (error: Error, filename: string) => void;
 
@@ -38,4 +47,8 @@ export interface IDatabaseFileEntry {
 
 export function DeepCopy(object: {}): {} {
 	return JSON.parse(JSON.stringify(object));
+}
+
+export function RemoveFileEnding(fileName: string): string {
+	return fileName.replace(removeFileExtensionRegex, '');
 }

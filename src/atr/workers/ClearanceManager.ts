@@ -4,7 +4,13 @@ import * as fs from 'fs-extra';
 import { type } from 'os';
 import * as readChunk from 'read-chunk';
 
-import { FileDocumentType, QueueFile, RejectPromise, ResolveBooleanPromise, ResolveStringPromise, ResolveVoidPromise } from '../Utils';
+import { 	FileDocumentType,
+			QueueFile,
+			RejectPromise,
+			ResolveBooleanPromise,
+			ResolveQueueFilePromise,
+			ResolveStringPromise,
+			ResolveVoidPromise } from '../Utils';
 import { DocumentManager } from './DocumentManager';
 import { FileManager } from './FileManager';
 import { PropertiesManager } from './PropertiesManager';
@@ -145,8 +151,8 @@ export class ClearanceManager {
 					continue;
 				}
 
-				const currentFileHash: string = await this.calculateSHA256Checksum(currentFile.Path);
-				const isDuplicate: boolean = await this.documentManager.checkForDuplicate(currentFileHash);
+				const originalFileHash: string = await this.calculateSHA256Checksum(currentFile.Path);
+				const isDuplicate: boolean = await this.documentManager.checkForDuplicate(originalFileHash);
 
 				console.log(this.logPrefix, 'Is duplicate?', isDuplicate);
 
@@ -161,15 +167,42 @@ export class ClearanceManager {
 				}
 
 				const documentType: FileDocumentType = await this.checkFileType(currentFile.Path);
-				const currentFileStats: fs.Stats = fs.statSync(currentFile.Path);
-				const currentFileSize: number = currentFileStats.size / 1000000.0;
+
+				let finalFile: QueueFile = currentFile;
+				let finalFileHash: string = originalFileHash;
+				let finalFileSize: number;
 				let finalPath: string;
 
-				// if unknown file format, stop
-				if (documentType !== FileDocumentType.Unusable) {
+				if (documentType === FileDocumentType.Image) {
+					console.log(this.logPrefix, 'File is a valid image. Start converting...');
+
+					// if image, always convert to png
+					finalFile = await this.fileManager.convertImageToPng(currentFile);
+					console.log(this.logPrefix, 'Finished converting. Removing unconverted original...');
+
+					// remove original file from temp folder, since converted duplicate exists now
+					await fs.remove(currentFile.Path);
+					console.log(this.logPrefix, 'Original removed.');
+
+					// calculate hash of converted file
+					finalFileHash = await this.calculateSHA256Checksum(finalFile.Path);
+
+					const fileStats: fs.Stats = fs.statSync(finalFile.Path);
+					finalFileSize = fileStats.size / 1000000.0;
+
+					finalPath = await this.fileManager.moveToDocumentsFolder(finalFile, documentType, finalFileHash);
+
+				} else if (documentType !== FileDocumentType.Unusable) {
 					console.log(this.logPrefix, 'File is a valid document');
-					finalPath = await this.fileManager.moveToDocumentsFolder(currentFile, documentType, currentFileHash);
+
+					// if PDF or Plaintext
+					const fileStats: fs.Stats = fs.statSync(finalFile.Path);
+					finalFileSize = fileStats.size / 1000000.0;
+
+					finalPath = await this.fileManager.moveToDocumentsFolder(finalFile, documentType, finalFileHash);
+
 				} else {
+					// if unknown file format, stop
 					console.log(this.logPrefix, 'File is not a valid document. Removing from temporary files...');
 
 					// remove file from temp folder
@@ -179,7 +212,7 @@ export class ClearanceManager {
 					continue;
 				}
 
-				await this.documentManager.addDocument(currentFile, currentFileHash, finalPath, currentFileSize, documentType);
+				await this.documentManager.addDocument(finalFile, originalFileHash, finalFileHash, finalPath, finalFileSize, documentType);
 
 			} catch (error) {
 				console.log(this.logPrefix, 'Error caught in workOffQueue():', error);

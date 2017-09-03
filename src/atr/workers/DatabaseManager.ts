@@ -40,7 +40,8 @@ export class DatabaseManager {
 			console.log(this.logPrefix, 'Checking for hash', hashSHA256, 'in database...');
 
 			this.database.all(
-				`SELECT * FROM ${this.fileTableName} WHERE checksum="${hashSHA256}"`, (done: sqlite3.Statement, result: IDatabaseFileEntry[]) => {
+				// tslint:disable-next-line:max-line-length
+				`SELECT * FROM ${this.fileTableName} WHERE originalChecksum="${hashSHA256}"`, (done: sqlite3.Statement, result: IDatabaseFileEntry[]) => {
 
 				let returnValue: boolean | Error;
 
@@ -67,16 +68,25 @@ export class DatabaseManager {
 	}
 
 	public async addEntryToFileTable(
-		hash: string, filePath: string, fileType: FileDocumentType, date: number, name: string, originalFileName: string): Promise<void> {
+		// tslint:disable-next-line:max-line-length
+		originalHash: string, convertedHash: string, filePath: string, fileType: FileDocumentType, date: number, name: string, originalFileName: string): Promise<void> {
 		return new Promise<void>((resolve: ResolveVoidPromise, reject: RejectPromise): void => {
 
 			const statement: sqlite3.Statement = this.database.prepare(
-				`INSERT INTO ${this.fileTableName}(checksum, filePath, fileType, createdOn, name, oldFileName) VALUES (?, ?, ?, ?, ?, ?)`);
+				`INSERT INTO ${this.fileTableName}(
+					originalChecksum,
+					convertedChecksum,
+					filePath,
+					fileType,
+					createdOn,
+					name,
+					oldFileName)
+					VALUES (?, ?, ?, ?, ?, ?, ?)`);
 
-			statement.run(hash, filePath, fileType, date, name, originalFileName);
+			statement.run(originalHash, convertedHash, filePath, fileType, date, name, originalFileName);
 
 			statement.finalize((callback: Error) => {
-				console.log(this.logPrefix, 'Added entry', hash, 'to', this.fileTableName);
+				console.log(this.logPrefix, 'Added entry', convertedHash, 'to', this.fileTableName);
 				resolve();
 			});
 		});
@@ -207,7 +217,8 @@ export class DatabaseManager {
 			this.database.run(
 				`CREATE TABLE "${this.fileTableName}" (
 				"id" INTEGER NOT NULL PRIMARY KEY UNIQUE,
-				"checksum" TEXT NOT NULL UNIQUE,
+				"originalChecksum" TEXT NOT NULL UNIQUE,
+				"convertedChecksum" TEXT NOT NULL UNIQUE,
 				"filePath" TEXT NOT NULL UNIQUE,
 				"fileType" TEXT NOT NULL,
 				"createdOn" TEXT NOT NULL,
@@ -241,41 +252,6 @@ export class DatabaseManager {
 				} else {
 					reject(new Error('ERROR: Could not write tables: ' + callback));
 				}
-			});
-		});
-	}
-
-	// FIXME: For testing only
-	private async fillFileTable(): Promise<void> {
-		return new Promise<void>((resolve: ResolveVoidPromise, reject: RejectPromise): void => {
-
-			const statement: sqlite3.Statement = this.database.prepare(
-				`INSERT INTO ${this.fileTableName}(checksum, filePath, fileType, createdOn, name) VALUES (?, ?, ?, ?, ?)`);
-
-			for (let i: number = 0; i < 10; i++) {
-				statement.run('Ipsum' + i, '/path/to/fooX' + i, 'PDF', Date.now(), 'Example Document');
-			}
-
-			statement.finalize((callback: Error) => {
-				console.log(this.logPrefix, 'Filled table', this.fileTableName);
-				resolve();
-			});
-		});
-	}
-
-	// FIXME: For testing only
-	private async fillDocumentPDFTable(): Promise<void> {
-		return new Promise<void>((resolve: ResolveVoidPromise, reject: RejectPromise): void => {
-
-			const statement2: sqlite3.Statement = this.database.prepare(`INSERT INTO ${this.documentPdfTableName}(fileID, name) VALUES (?, ?)`);
-
-			for (let i: number = 1; i < 11; i++) {
-				statement2.run(i, 'Example Document');
-			}
-
-			statement2.finalize((callback: Error) => {
-				console.log(this.logPrefix, 'Filled table', this.documentPdfTableName);
-				resolve();
 			});
 		});
 	}

@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as path from 'path';
 import { Server } from './atr/Server';
 import { ClearanceManager } from './atr/workers/ClearanceManager';
 import { DatabaseManager } from './atr/workers/DatabaseManager';
@@ -9,6 +10,11 @@ import { PropertiesManager } from './atr/workers/PropertiesManager';
 async function main(): Promise<void> {
 	const propertiesManager: PropertiesManager = PropertiesManager.getInstance();
 	propertiesManager.setPath(__dirname);
+
+	// setup project file structure
+	const tempConvertedPath: string = path.join(
+		propertiesManager.ROOT_PATH, propertiesManager.TEMP_DIRECTORY, propertiesManager.CONVERTED_DIRECTORY);
+	await fs.mkdirSync(tempConvertedPath);
 
 	const databaseManager: DatabaseManager = DatabaseManager.getInstance();
 	await databaseManager.createAndOpenDatabase();
