@@ -14,7 +14,11 @@ async function main(): Promise<void> {
 	// setup project file structure
 	const tempConvertedPath: string = path.join(
 		propertiesManager.ROOT_PATH, propertiesManager.TEMP_DIRECTORY, propertiesManager.CONVERTED_DIRECTORY);
-	await fs.mkdirSync(tempConvertedPath);
+	if (!fs.existsSync(tempConvertedPath)) {
+		console.log('File structure is created...');
+		await fs.mkdirSync(tempConvertedPath);
+		console.log('...done');
+	}
 
 	const databaseManager: DatabaseManager = DatabaseManager.getInstance();
 	await databaseManager.createAndOpenDatabase();
