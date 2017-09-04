@@ -1,6 +1,7 @@
 import * as crypto from 'crypto';
 import * as fileType from 'file-type';
 import * as fs from 'fs-extra';
+import * as isBinaryFile from 'isbinaryfile';
 import { type } from 'os';
 import * as readChunk from 'read-chunk';
 
@@ -79,39 +80,56 @@ export class ClearanceManager {
 		}
 	}
 
+	private async checkIfFileIsBinary(fileBuffer: Buffer, byteNumber: number): Promise<boolean> {
+		return new Promise<boolean>((resolve: ResolveBooleanPromise, reject: RejectPromise): void => {
+
+			isBinaryFile(fileBuffer, byteNumber, (error: Error, result: boolean) => {
+				if (!error) {
+					resolve(result);
+				} else {
+					reject(error);
+				}
+			});
+		});
+	}
+
 	private checkFileType(pathToFile: string): FileDocumentType {
-		const headerBuffer: Buffer = readChunk.sync(pathToFile, 0, 4100);
+		const byteNumber: number = 4100;
+		const headerBuffer: Buffer = readChunk.sync(pathToFile, 0, byteNumber);
 		const documentType: fileType.FileTypeResult = fileType(headerBuffer);
+		const isBinary: boolean = isBinaryFile.sync(headerBuffer, byteNumber);
 		let tempFileType: FileDocumentType = FileDocumentType.Unusable;
 
-		// TODO: maybe epub in the future
+		console.log(this.logPrefix, 'The file is binary:', isBinary);
+
 		if (documentType !== null) {
 			switch (documentType.ext) {
 				case 'png':
-					tempFileType = FileDocumentType.Image;
-					break;
-				case 'jpg':
-					// TODO: convert to png
-					tempFileType = FileDocumentType.Image;
-					break;
 				case 'gif':
-					// TODO: convert to png
-					tempFileType = FileDocumentType.Image;
-					break;
-				case 'bmp':
-					// TODO: convert to png
+				case 'jpg':
 					tempFileType = FileDocumentType.Image;
 					break;
 				case 'pdf':
 					tempFileType = FileDocumentType.Pdf;
 					break;
 				default:
+				// if not allowed file and not binary --> plaintext else unusable
+					if (!isBinary) {
+						tempFileType = FileDocumentType.Plaintext;
+					} else {
+						tempFileType = FileDocumentType.Unusable;
+					}
 					break;
 			}
-
 		} else {
-			// TODO: Check if plaintext or binary
 			tempFileType = FileDocumentType.Unusable;
+
+			// if not known and not binary --> plaintext else unusable
+			if (!isBinary) {
+				tempFileType = FileDocumentType.Plaintext;
+			} else {
+				tempFileType = FileDocumentType.Unusable;
+			}
 		}
 
 		return tempFileType;
@@ -193,7 +211,7 @@ export class ClearanceManager {
 					finalPath = await this.fileManager.moveToDocumentsFolder(finalFile, documentType, finalFileHash);
 
 				} else if (documentType !== FileDocumentType.Unusable) {
-					console.log(this.logPrefix, 'File is a valid document');
+					console.log(this.logPrefix, 'File is a valid document of:', documentType);
 
 					// if PDF or Plaintext
 					const fileStats: fs.Stats = fs.statSync(finalFile.Path);
